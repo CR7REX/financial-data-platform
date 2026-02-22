@@ -1,134 +1,68 @@
-# Financial Data Platform 📈
+# Financial Data Platform
 
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![Apache Airflow](https://img.shields.io/badge/Airflow-2.8+-017CEE.svg)](https://airflow.apache.org/)
 [![dbt](https://img.shields.io/badge/dbt-1.7+-FF694B.svg)](https://www.getdbt.com/)
-[![Great Expectations](https://img.shields.io/badge/Great_Expectations-2.0+-2C8EBB.svg)](https://greatexpectations.io/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Alternative data aggregation platform combining market data with sentiment analysis for comprehensive financial insights.
+Playing around with market data + sentiment analysis. Mostly an excuse to learn Great Expectations and practice data quality stuff.
 
-## 🎯 Overview
+## The idea
 
-This project demonstrates data engineering for financial markets:
+What if we could correlate Reddit sentiment with stock movements? Probably nothing groundbreaking but it's fun to check. This pipeline grabs:
+- Market data from Yahoo Finance
+- News headlines
+- Reddit comments from r/wallstreetbets (for entertainment value)
 
-- **Multi-source Ingestion**: Market data, news, social media sentiment
-- **Data Quality**: Comprehensive testing and validation
-- **Sentiment Analysis**: NLP for market sentiment signals
-- **Data Lineage**: Full traceability from source to insight
-- **Regulatory Compliance**: Audit trails and data governance
+Then tries to make sense of it all.
 
-## 🏗️ Architecture
+## Current state
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Data Sources                            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │  Market  │  │  News    │  │  Social  │  │  Reddit  │    │
-│  │  APIs    │  │  Feeds   │  │  Media   │  │  API     │    │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘    │
-└───────┼─────────────┼─────────────┼─────────────┼──────────┘
-        │             │             │             │
-        └─────────────┴──────┬──────┴─────────────┘
-                             ▼
-                    ┌─────────────────┐
-                    │    Airflow      │
-                    │    (DAGs)       │
-                    └────────┬────────┘
-                             │
-            ┌────────────────┼────────────────┐
-            ▼                ▼                ▼
-    ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-    │   BigQuery   │ │   Postgres   │ │    dbt       │
-    │  (Raw Data)  │ │   (Metadata) │ │  (Models)    │
-    └──────────────┘ └──────────────┘ └──────────────┘
-```
+Honestly? It's a work in progress. The Airflow DAGs run, data lands in BigQuery, dbt models exist. But the sentiment analysis part is... basic. Like, really basic. spaCy + some keyword matching. Nothing fancy.
 
-## 🚀 Features
+## What's actually done
 
-- **Multi-asset Coverage**: Equities, forex, crypto
-- **Sentiment Scoring**: Real-time sentiment from multiple sources
-- **Data Quality**: Automated validation with Great Expectations
-- **Lineage Tracking**: Complete audit trail
-- **Alert System**: Anomaly detection and notifications
+- Airflow DAGs for daily data ingestion
+- Basic data quality checks with Great Expectations
+- dbt models for cleaning and transforming
+- Some experiments with correlation analysis (Jupyter notebooks)
 
-## 🛠️ Tech Stack
+## What's broken / TODO
 
-| Component | Technology |
-|-----------|------------|
-| Orchestration | Apache Airflow |
-| Data Warehouse | BigQuery |
-| Transformation | dbt |
-| Data Quality | Great Expectations |
-| NLP | spaCy, Transformers |
-| Storage | PostgreSQL, BigQuery |
-| Monitoring | Prometheus, Grafana |
+- [ ] The Reddit API rate limits are annoying
+- [ ] Need better sentiment scoring (current one is too naive)
+- [ ] Data lineage tracking - started but not complete
+- [ ] Actually prove if sentiment predicts anything (spoiler: probably not)
+- [ ] Add proper alerting when data quality checks fail
 
-## 📁 Project Structure
+## Tech stack
 
-```
-.
-├── dags/                    # Airflow DAGs
-│   ├── market_data.py
-│   ├── news_ingestion.py
-│   └── sentiment_pipeline.py
-├── dbt/                     # dbt project
-│   ├── models/
-│   ├── tests/
-│   └── docs/
-├── notebooks/               # Analysis notebooks
-├── great_expectations/      # Data quality configs
-└── docker-compose.yml
-```
+- **Airflow** for orchestration
+- **BigQuery** for warehouse
+- **dbt** for transformation
+- **Great Expectations** for data validation
+- **spaCy** for NLP (I know, should probably use transformers but ¯\_(ツ)_/¯)
 
-## 🚦 Quick Start
+## Running it
 
 ```bash
-# Clone and setup
 git clone https://github.com/CR7REX/financial-data-platform.git
 cd financial-data-platform
-
-# Start services
 docker-compose up -d
-
-# Run dbt models
-cd dbt
-dbt deps
-dbt run
-dbt test
 ```
 
-## 📊 Data Sources
+You'll need API keys for Reddit and NewsAPI if you want the full thing.
 
-| Source | Type | Frequency |
-|--------|------|-----------|
-| Yahoo Finance | Market Data | Real-time |
-| NewsAPI | News | Hourly |
-| Twitter API | Social | Streaming |
-| Reddit API | Sentiment | Hourly |
+## Lessons learned
 
-## 🔍 Data Quality
+- Free financial APIs have... quirks. Yahoo Finance isn't officially an API, just a hack that could break any day.
+- Data quality matters more than you think. One bad timestamp ruins everything.
+- r/wallstreetbets sentiment is basically noise. Who knew?
+- Great Expectations is powerful but the learning curve is real
 
-- **Completeness**: No missing required fields
-- **Freshness**: Data updated within expected intervals
-- **Accuracy**: Validation against reference data
-- **Uniqueness**: No duplicate records
+## Disclaimer
 
-## 🗺️ Roadmap
-
-- [ ] Add more alternative data sources
-- [ ] Implement ML-based signal generation
-- [ ] Real-time streaming with Kafka
-- [ ] Portfolio backtesting framework
-
-## ⚠️ Disclaimer
-
-This project is for educational and demonstration purposes only. Not financial advice.
-
-## 📝 License
-
-MIT License - see [LICENSE](LICENSE) for details.
+This is for learning purposes only. Don't trade based on this. Seriously. I'm not responsible if you lose money.
 
 ---
 
-*Turning data into alpha* 📊💰
+*Made for educational purposes. The only thing this predicts is that I'll spend too much time debugging Airflow.*
