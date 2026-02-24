@@ -10,7 +10,9 @@ RUN pip install --no-cache-dir \
     avro==1.11.3 \
     python-schema-registry-client==2.5.0 \
     python-dotenv==1.0.0 \
-    structlog==24.1.0
+    structlog==24.1.0 \
+    pandas==2.1.4 \
+    requests==2.31.0
 
 COPY . .
 

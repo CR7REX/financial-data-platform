@@ -6,6 +6,8 @@
 
 Real-time market data pipeline using Kafka, PostgreSQL, and dbt. Built to explore stream processing patterns and exactly-once semantics.
 
+> ⚠️ **Note**: Uses simulated stock data for demonstration purposes.
+
 ## What this does
 
 - **Ingests** real-time stock prices from Yahoo Finance

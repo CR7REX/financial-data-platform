@@ -13,7 +13,8 @@ RUN pip install --no-cache-dir \
     pandas==2.1.4 \
     pyarrow==14.0.2 \
     structlog==24.1.0 \
-    python-dotenv==1.0.0
+    python-dotenv==1.0.0 \
+    requests==2.31.0
 
 COPY . .
 
