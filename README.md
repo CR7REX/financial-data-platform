@@ -6,11 +6,11 @@
 
 Real-time market data pipeline using Kafka, PostgreSQL, and dbt. Built to explore stream processing patterns and exactly-once semantics.
 
-> ⚠️ **Note**: Uses simulated stock data for demonstration purposes.
+> ⚠️ **Note**: Uses simulated stock data for demonstration purposes. The producer generates realistic price movements with random walk patterns.
 
 ## What this does
 
-- **Ingests** real-time stock prices from Yahoo Finance
+- **Generates** simulated stock prices (SPY, QQQ, AAPL, MSFT, GOOGL, TSLA, META, NVDA)
 - **Streams** data through Kafka with Avro serialization
 - **Processes** and validates data with exactly-once delivery
 - **Stores** in PostgreSQL for downstream analytics
@@ -62,14 +62,34 @@ docker-compose up -d
 # Wait for services to be ready
 sleep 10
 
-# Start producing data
+# View logs
 docker-compose logs -f producer
-
-# In another terminal, watch processing
 docker-compose logs -f processor
+```
 
-# Access Kafka UI
-curl http://localhost:8080
+## Service Endpoints
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| **Kafka UI** | http://localhost:8082 | Browse topics, messages, schema registry |
+| **Airflow** | http://localhost:8081 | DAG orchestration (admin/admin) |
+| **PostgreSQL** | localhost:5433 | Connect with `psql -h localhost -p 5433 -U airflow -d financial_data` |
+
+## CLI Commands
+
+```bash
+# View Kafka topics
+docker-compose exec redpanda rpk topic list
+
+# Consume messages from CLI
+docker-compose exec redpanda rpk topic consume stock-prices
+
+# Query database
+docker-compose exec postgres psql -U airflow -d financial_data -c "SELECT * FROM stock_prices LIMIT 10;"
+
+# Run dbt models
+cd dbt
+dbt run --profiles-dir . --target docker
 ```
 
 ## Tech Stack
