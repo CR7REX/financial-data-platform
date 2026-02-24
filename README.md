@@ -1,68 +1,148 @@
 # Financial Data Platform
 
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
-[![Apache Airflow](https://img.shields.io/badge/Airflow-2.8+-017CEE.svg)](https://airflow.apache.org/)
+[![Kafka](https://img.shields.io/badge/Kafka-Redpanda-FF6B6B.svg)](https://redpanda.com/)
 [![dbt](https://img.shields.io/badge/dbt-1.7+-FF694B.svg)](https://www.getdbt.com/)
 
-Playing around with market data + sentiment analysis. Mostly an excuse to learn Great Expectations and practice data quality stuff.
+Real-time market data pipeline using Kafka, PostgreSQL, and dbt. Built to explore stream processing patterns and exactly-once semantics.
 
-## The idea
+## What this does
 
-What if we could correlate Reddit sentiment with stock movements? Probably nothing groundbreaking but it's fun to check. This pipeline grabs:
-- Market data from Yahoo Finance
-- News headlines
-- Reddit comments from r/wallstreetbets (for entertainment value)
+- **Ingests** real-time stock prices from Yahoo Finance
+- **Streams** data through Kafka with Avro serialization
+- **Processes** and validates data with exactly-once delivery
+- **Stores** in PostgreSQL for downstream analytics
+- **Transforms** using dbt for business-ready datasets
 
-Then tries to make sense of it all.
+## Architecture
 
-## Current state
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Yahoo     │     │   Kafka     │     │   Stream    │     │  PostgreSQL │
+│  Finance    │────▶│  (Redpanda) │────▶│  Processor  │────▶│   + dbt     │
+│   API       │     │             │     │             │     │             │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+                                                        │
+                                                        ▼
+                                               ┌─────────────┐
+                                               │    Kafka    │
+                                               │     UI      │
+                                               └─────────────┘
+```
 
-Honestly? It's a work in progress. The Airflow DAGs run, data lands in BigQuery, dbt models exist. But the sentiment analysis part is... basic. Like, really basic. spaCy + some keyword matching. Nothing fancy.
+## Key Features
 
-## What's actually done
+**Stream Processing**
+- Exactly-once semantics with idempotent producers
+- Avro schema registry for data contracts
+- Manual offset management for reliable processing
+- Batch inserts to minimize database load
 
-- Airflow DAGs for daily data ingestion
-- Basic data quality checks with Great Expectations
-- dbt models for cleaning and transforming
-- Some experiments with correlation analysis (Jupyter notebooks)
+**Data Quality**
+- Schema validation at ingestion
+- Automated data quality checks in dbt
+- Gap detection and stale data monitoring
+- Anomaly detection (price spikes > 10%)
 
-## What's broken / TODO
+**Observability**
+- Structured logging with structlog
+- Data quality dashboard via dbt models
+- Kafka UI for topic monitoring
 
-- [ ] The Reddit API rate limits are annoying
-- [ ] Need better sentiment scoring (current one is too naive)
-- [ ] Data lineage tracking - started but not complete
-- [ ] Actually prove if sentiment predicts anything (spoiler: probably not)
-- [ ] Add proper alerting when data quality checks fail
-
-## Tech stack
-
-- **Airflow** for orchestration
-- **BigQuery** for warehouse
-- **dbt** for transformation
-- **Great Expectations** for data validation
-- **spaCy** for NLP (I know, should probably use transformers but ¯\_(ツ)_/¯)
-
-## Running it
+## Quick Start
 
 ```bash
+# Clone and start infrastructure
 git clone https://github.com/CR7REX/financial-data-platform.git
 cd financial-data-platform
 docker-compose up -d
+
+# Wait for services to be ready
+sleep 10
+
+# Start producing data
+docker-compose logs -f producer
+
+# In another terminal, watch processing
+docker-compose logs -f processor
+
+# Access Kafka UI
+curl http://localhost:8080
 ```
 
-You'll need API keys for Reddit and NewsAPI if you want the full thing.
+## Tech Stack
 
-## Lessons learned
+| Component | Technology |
+|-----------|------------|
+| Message Queue | Redpanda (Kafka-compatible) |
+| Schema Registry | Built-in Redpanda |
+| Database | PostgreSQL |
+| Transformation | dbt |
+| Serialization | Avro |
+| Orchestration | Airflow (for batch tasks) |
 
-- Free financial APIs have... quirks. Yahoo Finance isn't officially an API, just a hack that could break any day.
-- Data quality matters more than you think. One bad timestamp ruins everything.
-- r/wallstreetbets sentiment is basically noise. Who knew?
-- Great Expectations is powerful but the learning curve is real
+## Data Flow
+
+1. **Producer** polls Yahoo Finance every 10 seconds
+2. **Avro serialization** enforces schema contracts
+3. **Kafka** persists messages with replication
+4. **Consumer** processes batches with manual commits
+5. **PostgreSQL** stores validated records
+6. **dbt** transforms raw data to analytics-ready tables
+
+## Project Structure
+
+```
+.
+├── producer/           # Kafka producer (real-time ingestion)
+│   ├── producer.py
+│   └── Dockerfile
+├── processor/          # Stream processor (consumer)
+│   ├── processor.py
+│   └── Dockerfile
+├── dbt/                # dbt models
+│   ├── models/
+│   │   ├── staging/
+│   │   └── marts/
+│   └── dbt_project.yml
+├── airflow/            # DAGs for batch processing
+│   └── dags/
+└── docker-compose.yml  # Infrastructure setup
+```
+
+## dbt Models
+
+- **stg_stock_prices** - Cleaned and validated price data
+- **fct_hourly_prices** - OHLC aggregation by hour
+- **fct_data_quality** - Data quality monitoring dashboard
+
+## Configuration
+
+Environment variables:
+```bash
+KAFKA_BROKER=redpanda:9092
+SCHEMA_REGISTRY_URL=http://redpanda:8081
+DATABASE_URL=postgresql://airflow:airflow@postgres:5432/financial_data
+```
+
+## Lessons Learned
+
+- Exactly-once is harder than it looks. Enable idempotence, use transactions.
+- Schema evolution needs planning. Avro + Schema Registry helps.
+- Batch inserts beat individual INSERTs by 10x.
+- Kafka consumer lag is the metric that matters.
+
+## Future Work
+
+- [ ] Add Kafka Streams for windowed aggregations
+- [ ] Implement dead letter queue for failed records
+- [ ] Add Prometheus metrics export
+- [ ] CDC (Change Data Capture) with Debezium
 
 ## Disclaimer
 
-This is for learning purposes only. Don't trade based on this. Seriously. I'm not responsible if you lose money.
+For educational purposes only. Not for trading.
 
 ---
 
-*Made for educational purposes. The only thing this predicts is that I'll spend too much time debugging Airflow.*
+*Built to understand stream processing at scale. The data flows, the pipeline holds.*

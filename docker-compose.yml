@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # Kafka (使用 Redpanda - 更轻量，兼容 Kafka API)
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    container_name: fdp_redpanda
+    command:
+      - redpanda start
+      - --smp 1
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+    ports:
+      - 18081:18081  # Schema Registry
+      - 18082:18082  # REST Proxy
+      - 19092:19092  # Kafka API
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+
+  # Kafka UI (管理界面)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: fdp_kafka_ui
+    ports:
+      - 8080:8080
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: redpanda:9092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://redpanda:8081
+    depends_on:
+      - redpanda
+
+  # PostgreSQL (用于存储元数据和 dbt 模型)
+  postgres:
+    image: postgres:16
+    container_name: fdp_postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: financial_data
+    ports:
+      - 5433:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Data Producer (实时数据采集)
+  producer:
+    build:
+      context: ./producer
+      dockerfile: Dockerfile
+    container_name: fdp_producer
+    environment:
+      KAFKA_BROKER: redpanda:9092
+      SCHEMA_REGISTRY_URL: http://redpanda:8081
+    depends_on:
+      - redpanda
+    volumes:
+      - ./producer:/app
+
+  # Stream Processor (数据处理)
+  processor:
+    build:
+      context: ./processor
+      dockerfile: Dockerfile
+    container_name: fdp_processor
+    environment:
+      KAFKA_BROKER: redpanda:9092
+      SCHEMA_REGISTRY_URL: http://redpanda:8081
+      DATABASE_URL: postgresql://airflow:airflow@postgres:5432/financial_data
+    depends_on:
+      - redpanda
+      - postgres
+    volumes:
+      - ./processor:/app
+
+  # Airflow (调度 - 用于批量任务)
+  airflow:
+    image: apache/airflow:2.8.1
+    container_name: fdp_airflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/financial_data
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    ports:
+      - 8081:8080
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/plugins:/opt/airflow/plugins
+    depends_on:
+      - postgres
+    command: >
+      bash -c "
+        airflow db init &&
+        airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com &&
+        airflow webserver
+      "
+
+volumes:
+  redpanda_data:
+  postgres_data:

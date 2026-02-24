@@ -1,0 +1,27 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: public
+    tables:
+      - name: stock_prices
+        description: "Real-time stock price data from Kafka"
+        columns:
+          - name: symbol
+            description: "Stock ticker symbol"
+            tests:
+              - not_null
+          - name: timestamp
+            description: "UTC timestamp of the price"
+            tests:
+              - not_null
+          - name: price
+            description: "Current stock price"
+            tests:
+              - not_null
+          - name: volume
+            description: "Trading volume"
+          - name: change
+            description: "Price change from previous close"
+          - name: change_percent
+            description: "Percentage change from previous close"
